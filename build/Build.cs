@@ -1,11 +1,11 @@
 using System.IO.Compression;
-using Nuke.Common;
-using Nuke.Common.IO;
-using Nuke.Common.ProjectModel;
-using Nuke.Common.Tools.DotNet;
+using Fallout.Common;
+using Fallout.Common.IO;
+using Fallout.Solutions;
+using Fallout.Common.Tools.DotNet;
 using Serilog;
 
-class Build : NukeBuild
+class Build : FalloutBuild
 {
   public static int Main() => Execute<Build>(x => x.Pack);
 
