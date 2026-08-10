@@ -401,6 +401,6 @@ FodyWeavers.xsd
 
 # End of https://www.toptal.com/developers/gitignore/api/csharp
 
-# Nuke build system
+# Fallout build system
 output/
-.nuke/temp/
+.fallout/temp/
