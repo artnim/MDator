@@ -11,10 +11,19 @@ list — this file curates the user-visible changes.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-08-10
+
+### Fixed
+
+- The NuGet package again ships analyzer variants actually compiled against
+  Roslyn 4.8, 4.12, and 5.0. Since 0.5.0 all three variants were silently
+  built against one and the same Roslyn version, so consumers on older
+  compilers could hit CS9057 once that version moved ahead of their SDK.
+
 ### Changed
 
 - Bumped shipped runtime dependencies `Microsoft.Bcl.AsyncInterfaces` and
-  `Microsoft.Extensions.DependencyInjection.Abstractions` to 10.0.8.
+  `Microsoft.Extensions.DependencyInjection.Abstractions` to 10.0.10.
 
 ## [0.6.1] - 2026-06-12
 
@@ -60,7 +69,8 @@ list — this file curates the user-visible changes.
 
 For prior releases see the [GitHub Releases](https://github.com/ArtnimIO/MDator/releases).
 
-[Unreleased]: https://github.com/ArtnimIO/MDator/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/ArtnimIO/MDator/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/ArtnimIO/MDator/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/ArtnimIO/MDator/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/ArtnimIO/MDator/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ArtnimIO/MDator/compare/v0.4.0...v0.5.0
