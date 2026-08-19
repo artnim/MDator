@@ -125,9 +125,10 @@ namespace MDator.Generated.SnapshotTest
         {
             var handler = _sp.GetRequiredService<global::MDator.IRequestHandler<global::Snap.Fire>>();
 
-            global::MDator.RequestHandlerDelegate<global::MDator.Unit> next = async () =>
+            global::MDator.RequestHandlerDelegate<global::MDator.Unit> next = async __t =>
             {
-                await handler.Handle(request, ct).ConfigureAwait(false);
+                var __ct = __t == default ? ct : __t;
+                await handler.Handle(request, __ct).ConfigureAwait(false);
                 return global::MDator.Unit.Value;
             };
 
@@ -135,7 +136,7 @@ namespace MDator.Generated.SnapshotTest
             {
                 foreach (var __rb in _sp.GetServices<global::MDator.IPipelineBehavior<global::Snap.Fire, global::MDator.Unit>>())
                 {
-                    { var __prev2 = next; next = () => __rb.Handle(request, __prev2, ct); }
+                    { var __prev2 = next; next = __t => __rb.Handle(request, __prev2, __t == default ? ct : __t); }
                 }
             }
 

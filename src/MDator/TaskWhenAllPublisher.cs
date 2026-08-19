@@ -4,18 +4,18 @@ namespace MDator;
 /// Invokes all handlers concurrently and awaits them with <see cref="Task.WhenAll(Task[])"/>.
 /// Exceptions from all handlers are aggregated.
 /// </summary>
-public sealed class TaskWhenAllPublisher : INotificationPublisher
+public class TaskWhenAllPublisher : INotificationPublisher
 {
   /// <inheritdoc />
   public Task Publish(
-      IReadOnlyList<NotificationHandlerExecutor> handlerExecutors,
+      IEnumerable<NotificationHandlerExecutor> handlerExecutors,
       INotification notification,
       CancellationToken cancellationToken)
   {
-    var tasks = new Task[handlerExecutors.Count];
-    for (var i = 0; i < handlerExecutors.Count; i++)
+    var tasks = new List<Task>();
+    foreach (var executor in handlerExecutors)
     {
-      tasks[i] = handlerExecutors[i].HandlerCallback(notification, cancellationToken);
+      tasks.Add(executor.HandlerCallback(notification, cancellationToken));
     }
     return Task.WhenAll(tasks);
   }

@@ -5,9 +5,11 @@ namespace MDator;
 
 /// <summary>
 /// A delegate representing the next step in a request pipeline. Calling it advances
-/// to the next behavior (or finally the request handler).
+/// to the next behavior (or finally the request handler). Passing a non-default
+/// <paramref name="t"/> replaces the cancellation token observed by the remaining
+/// pipeline steps and the handler, matching MediatR v12.3+ semantics.
 /// </summary>
-public delegate Task<TResponse> RequestHandlerDelegate<TResponse>();
+public delegate Task<TResponse> RequestHandlerDelegate<TResponse>(CancellationToken t = default);
 
 /// <summary>
 /// Wraps a request handler, allowing cross-cutting concerns (logging, validation,
@@ -16,6 +18,7 @@ public delegate Task<TResponse> RequestHandlerDelegate<TResponse>();
 /// <typeparam name="TRequest">The type of the request object being processed.</typeparam>
 /// <typeparam name="TResponse">The type of the response object to be returned.</typeparam>
 public interface IPipelineBehavior<in TRequest, TResponse>
+    where TRequest : notnull
 {
   /// <summary>
   /// Processes a request through a behavior pipeline and invokes the next delegate in the chain.

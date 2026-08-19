@@ -25,3 +25,24 @@ public interface INotificationHandler<in TNotification>
   /// </return>
   Task Handle(TNotification notification, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Convenience base class for a synchronous notification handler, mirroring
+/// MediatR's <c>NotificationHandler&lt;TNotification&gt;</c>.
+/// </summary>
+/// <typeparam name="TNotification">The notification type being handled.</typeparam>
+public abstract class NotificationHandler<TNotification> : INotificationHandler<TNotification>
+    where TNotification : INotification
+{
+  Task INotificationHandler<TNotification>.Handle(TNotification notification, CancellationToken cancellationToken)
+  {
+    Handle(notification);
+    return Task.CompletedTask;
+  }
+
+  /// <summary>
+  /// Override in a derived class with the synchronous handler logic.
+  /// </summary>
+  /// <param name="notification">The notification instance to process.</param>
+  protected abstract void Handle(TNotification notification);
+}

@@ -200,7 +200,7 @@ public sealed class RuntimeDispatchCacheTests
   public async Task PublishFallback_invokes_every_registered_handler()
   {
     var (sp, _) = BuildBareContainer();
-    var publisher = new ForEachAwaitPublisher();
+    var publisher = new ForeachAwaitPublisher();
     var beforeA = DynNotificationHandlerA.InvocationCount;
     var beforeB = DynNotificationHandlerB.InvocationCount;
 
@@ -214,7 +214,7 @@ public sealed class RuntimeDispatchCacheTests
   public async Task PublishFallback_hot_loop_dispatches_correctly_with_cached_delegate()
   {
     var (sp, _) = BuildBareContainer();
-    var publisher = new ForEachAwaitPublisher();
+    var publisher = new ForeachAwaitPublisher();
     var beforeA = DynNotificationHandlerA.InvocationCount;
 
     for (var i = 0; i < 500; i++)
@@ -244,7 +244,7 @@ public sealed class RuntimeDispatchCacheTests
     // The fallback should resolve an empty enumerable and complete without throwing —
     // matching MediatR's "no handler is fine" semantic.
     var sp = new ServiceCollection().BuildServiceProvider();
-    var publisher = new ForEachAwaitPublisher();
+    var publisher = new ForeachAwaitPublisher();
 
     await RuntimeDispatch.PublishFallback(sp, publisher, new DynNotification(0), default);
   }

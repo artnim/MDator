@@ -30,9 +30,18 @@ public sealed class MDatorConfiguration
 
   /// <summary>
   /// Publisher strategy used by <c>IPublisher.Publish</c>. Defaults to
-  /// <see cref="ForEachAwaitPublisher"/> which matches MediatR's default.
+  /// <see cref="ForeachAwaitPublisher"/> which matches MediatR's default.
+  /// Ignored when <see cref="NotificationPublisherType"/> is set.
   /// </summary>
-  public INotificationPublisher NotificationPublisher { get; set; } = new ForEachAwaitPublisher();
+  public INotificationPublisher NotificationPublisher { get; set; } = new ForeachAwaitPublisher();
+
+  /// <summary>
+  /// Publisher strategy registered by type and resolved from the container,
+  /// so it can take constructor dependencies. When set, this wins over
+  /// <see cref="NotificationPublisher"/>. Mirrors MediatR's property of the
+  /// same name.
+  /// </summary>
+  public Type? NotificationPublisherType { get; set; }
 
   /// <summary>
   /// Additional closed pipeline behaviors to register at runtime. The generator
@@ -102,9 +111,113 @@ public sealed class MDatorConfiguration
   /// <summary>
   /// Registers a closed behavior at runtime against a specific service type.
   /// </summary>
+  public MDatorConfiguration AddBehavior<TServiceType, TImplementationType>(ServiceLifetime lifetime = ServiceLifetime.Transient)
+      where TImplementationType : class, TServiceType
+  {
+    AdditionalBehaviors.Add((typeof(TServiceType), typeof(TImplementationType), lifetime));
+    return this;
+  }
+
+  /// <summary>
+  /// Registers a closed behavior at runtime against a specific service type.
+  /// </summary>
   public MDatorConfiguration AddBehavior(Type serviceType, Type implementationType, ServiceLifetime lifetime = ServiceLifetime.Transient)
   {
     AdditionalBehaviors.Add((serviceType, implementationType, lifetime));
     return this;
+  }
+
+  /// <summary>
+  /// Registers an open generic <see cref="IPipelineBehavior{TRequest, TResponse}"/>
+  /// implementation, closed per request type by the container. Mirrors MediatR's
+  /// <c>AddOpenBehavior</c>. Runs on the runtime enumeration path, so it is
+  /// skipped when <see cref="FuseOnly"/> is enabled — use
+  /// <see cref="OpenBehaviorAttribute"/> for compile-time fusion instead.
+  /// </summary>
+  public MDatorConfiguration AddOpenBehavior(Type openBehaviorType, ServiceLifetime lifetime = ServiceLifetime.Transient)
+  {
+    RequireOpenImplementationOf(openBehaviorType, typeof(IPipelineBehavior<,>));
+    AdditionalBehaviors.Add((typeof(IPipelineBehavior<,>), openBehaviorType, lifetime));
+    return this;
+  }
+
+  /// <summary>
+  /// Registers multiple open generic behaviors. Mirrors MediatR's <c>AddOpenBehaviors</c>.
+  /// </summary>
+  public MDatorConfiguration AddOpenBehaviors(IEnumerable<Type> openBehaviorTypes, ServiceLifetime lifetime = ServiceLifetime.Transient)
+  {
+    foreach (var type in openBehaviorTypes) AddOpenBehavior(type, lifetime);
+    return this;
+  }
+
+  /// <summary>
+  /// Registers a closed stream behavior at runtime.
+  /// </summary>
+  public MDatorConfiguration AddStreamBehavior<TImplementationType>(ServiceLifetime lifetime = ServiceLifetime.Transient)
+      where TImplementationType : class
+  {
+    return AddStreamBehavior(typeof(TImplementationType), lifetime);
+  }
+
+  /// <summary>
+  /// Registers a closed stream behavior at runtime against a specific service type.
+  /// </summary>
+  public MDatorConfiguration AddStreamBehavior<TServiceType, TImplementationType>(ServiceLifetime lifetime = ServiceLifetime.Transient)
+      where TImplementationType : class, TServiceType
+  {
+    AdditionalBehaviors.Add((typeof(TServiceType), typeof(TImplementationType), lifetime));
+    return this;
+  }
+
+  /// <summary>
+  /// Registers a closed stream behavior at runtime under every
+  /// <see cref="IStreamPipelineBehavior{TRequest, TResponse}"/> interface it implements.
+  /// </summary>
+  public MDatorConfiguration AddStreamBehavior(Type implementationType, ServiceLifetime lifetime = ServiceLifetime.Transient)
+  {
+    var serviceTypes = implementationType.GetInterfaces()
+        .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IStreamPipelineBehavior<,>))
+        .ToList();
+    if (serviceTypes.Count == 0)
+    {
+      throw new InvalidOperationException(
+          $"{implementationType.Name} must implement IStreamPipelineBehavior<TRequest, TResponse>");
+    }
+    foreach (var serviceType in serviceTypes)
+      AdditionalBehaviors.Add((serviceType, implementationType, lifetime));
+    return this;
+  }
+
+  /// <summary>
+  /// Registers a closed stream behavior at runtime against a specific service type.
+  /// </summary>
+  public MDatorConfiguration AddStreamBehavior(Type serviceType, Type implementationType, ServiceLifetime lifetime = ServiceLifetime.Transient)
+  {
+    AdditionalBehaviors.Add((serviceType, implementationType, lifetime));
+    return this;
+  }
+
+  /// <summary>
+  /// Registers an open generic <see cref="IStreamPipelineBehavior{TRequest, TResponse}"/>
+  /// implementation, closed per request type by the container. Runs on the runtime
+  /// enumeration path, so it is skipped when <see cref="FuseOnly"/> is enabled.
+  /// </summary>
+  public MDatorConfiguration AddOpenStreamBehavior(Type openBehaviorType, ServiceLifetime lifetime = ServiceLifetime.Transient)
+  {
+    RequireOpenImplementationOf(openBehaviorType, typeof(IStreamPipelineBehavior<,>));
+    AdditionalBehaviors.Add((typeof(IStreamPipelineBehavior<,>), openBehaviorType, lifetime));
+    return this;
+  }
+
+  private static void RequireOpenImplementationOf(Type openBehaviorType, Type openInterface)
+  {
+    var implementsInterface = openBehaviorType.IsGenericTypeDefinition && openBehaviorType
+        .GetInterfaces()
+        .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == openInterface);
+    if (!implementsInterface)
+    {
+      throw new InvalidOperationException(
+          $"{openBehaviorType.Name} must be an open generic implementing {openInterface.Name}");
+    }
   }
 }

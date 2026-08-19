@@ -13,6 +13,13 @@ list — this file curates the user-visible changes.
 
 ### Added
 
+- MediatR v12 source-compatibility surface: `MDatorConfiguration` gains
+  `AddOpenBehavior`, `AddOpenBehaviors`, `AddBehavior<TService, TImpl>`,
+  `AddStreamBehavior` (all overloads), `AddOpenStreamBehavior`, and
+  `NotificationPublisherType`; the `NotificationHandler<T>` sync convenience
+  base class now exists.
+- `ForeachAwaitPublisher` with MediatR's spelling is now the default publisher.
+  The old `ForEachAwaitPublisher` name remains as an obsolete alias until 1.0.
 - The `Pack` build target now verifies the merged nupkg: each
   `analyzers/roslyn{4.8,4.12,5.0}` variant must exist and actually reference
   the Roslyn version its folder promises, so the packaging regression that
@@ -20,6 +27,27 @@ list — this file curates the user-visible changes.
 - Snapshot tests (Verify.SourceGenerators) covering the generator's emitted
   `MDatorGenerated.g.cs` for the main pipeline shapes, including the
   cross-assembly `[KnownRequest]` path.
+
+### Changed
+
+- `RequestHandlerDelegate<TResponse>` now takes an optional `CancellationToken`
+  parameter, matching MediatR 12.3+. Behaviors can pass their own token to
+  `next(token)`; generated and fallback pipelines thread it through with
+  MediatR's semantics (`default` keeps the ambient token).
+- `INotificationPublisher.Publish` now takes
+  `IEnumerable<NotificationHandlerExecutor>` instead of `IReadOnlyList<...>`,
+  matching MediatR — custom publishers written for MediatR compile unchanged.
+- `IPipelineBehavior<,>` and `IStreamPipelineBehavior<,>` now carry MediatR's
+  `where TRequest : notnull` constraint (the stream interface previously
+  required `IStreamRequest<TResponse>`, which was stricter than MediatR and
+  rejected MediatR-shaped open stream behaviors). `StreamHandlerDelegate<T>`
+  is now covariant, as in MediatR.
+
+### Fixed
+
+- `TaskWhenAllContinuationPublisher` no longer captures the loop index in the
+  lambdas it schedules via `Task.Run`, which could invoke the wrong handler or
+  throw `ArgumentOutOfRangeException` under scheduling delay.
 
 ## [0.6.2] - 2026-08-10
 

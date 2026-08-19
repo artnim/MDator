@@ -119,19 +119,22 @@ public static class RuntimeDispatch
   private static async Task<TResponse> SendFallbackTyped<TRequest, TResponse>(
       IServiceProvider sp, MDatorConfiguration cfg,
       TRequest request, CancellationToken ct)
-      where TRequest : IRequest<TResponse>
+      where TRequest : notnull, IRequest<TResponse>
   {
     var handler = sp.GetRequiredService<IRequestHandler<TRequest, TResponse>>();
 
-    RequestHandlerDelegate<TResponse> next = async () =>
+    RequestHandlerDelegate<TResponse> next = async t =>
     {
+      // MediatR v12.3+ semantics: a behavior may pass its own token to next();
+      // default means "keep the ambient token".
+      var effectiveCt = t == default ? ct : t;
       foreach (var p in sp.GetServices<IRequestPreProcessor<TRequest>>())
-        await p.Process(request, ct).ConfigureAwait(false);
+        await p.Process(request, effectiveCt).ConfigureAwait(false);
 
-      var resp = await handler.Handle(request, ct).ConfigureAwait(false);
+      var resp = await handler.Handle(request, effectiveCt).ConfigureAwait(false);
 
       foreach (var p in sp.GetServices<IRequestPostProcessor<TRequest, TResponse>>())
-        await p.Process(request, resp, ct).ConfigureAwait(false);
+        await p.Process(request, resp, effectiveCt).ConfigureAwait(false);
 
       return resp;
     };
@@ -149,7 +152,7 @@ public static class RuntimeDispatch
   public static Task SendVoidFallback<TRequest>(
       IServiceProvider sp, MDatorConfiguration cfg,
       TRequest request, CancellationToken ct)
-      where TRequest : IRequest
+      where TRequest : notnull, IRequest
   {
     var thunk = s_sendVoidCache.GetOrAdd(request!.GetType(), BuildSendVoidThunk);
     return thunk(sp, cfg, request, ct);
@@ -171,16 +174,17 @@ public static class RuntimeDispatch
   private static async Task SendVoidFallbackTyped<TRequest>(
       IServiceProvider sp, MDatorConfiguration cfg,
       TRequest request, CancellationToken ct)
-      where TRequest : IRequest
+      where TRequest : notnull, IRequest
   {
     var handler = sp.GetRequiredService<IRequestHandler<TRequest>>();
 
-    RequestHandlerDelegate<Unit> next = async () =>
+    RequestHandlerDelegate<Unit> next = async t =>
     {
+      var effectiveCt = t == default ? ct : t;
       foreach (var p in sp.GetServices<IRequestPreProcessor<TRequest>>())
-        await p.Process(request, ct).ConfigureAwait(false);
+        await p.Process(request, effectiveCt).ConfigureAwait(false);
 
-      await handler.Handle(request, ct).ConfigureAwait(false);
+      await handler.Handle(request, effectiveCt).ConfigureAwait(false);
       return Unit.Value;
     };
 
@@ -281,7 +285,7 @@ public static class RuntimeDispatch
   private static IAsyncEnumerable<TResponse> StreamFallbackTyped<TRequest, TResponse>(
       IServiceProvider sp, MDatorConfiguration cfg,
       TRequest request, CancellationToken ct)
-      where TRequest : IStreamRequest<TResponse>
+      where TRequest : notnull, IStreamRequest<TResponse>
   {
     var handler = sp.GetRequiredService<IStreamRequestHandler<TRequest, TResponse>>();
     StreamHandlerDelegate<TResponse> next = () => handler.Handle(request, ct);
@@ -331,7 +335,7 @@ public static class RuntimeDispatch
   private static async IAsyncEnumerable<object?> StreamObjectFallbackTyped<TRequest, TResponse>(
       IServiceProvider sp, MDatorConfiguration cfg,
       TRequest request, [EnumeratorCancellation] CancellationToken ct)
-      where TRequest : IStreamRequest<TResponse>
+      where TRequest : notnull, IStreamRequest<TResponse>
   {
     await foreach (var item in StreamFallbackTyped<TRequest, TResponse>(sp, cfg, request, ct)
         .WithCancellation(ct).ConfigureAwait(false))
@@ -391,6 +395,7 @@ public static class RuntimeDispatch
       IServiceProvider sp, MDatorConfiguration cfg,
       TRequest request, CancellationToken ct,
       RequestHandlerDelegate<TResponse> next)
+      where TRequest : notnull
   {
     // Open behaviors registered via [assembly: OpenBehavior(...)].
     // Reversed so that declared-earlier (lower Order) = outermost, matching
@@ -403,7 +408,7 @@ public static class RuntimeDispatch
         if (sp.GetService(closedType) is IPipelineBehavior<TRequest, TResponse> b)
         {
           var prev = next;
-          next = () => b.Handle(request, prev, ct);
+          next = t => b.Handle(request, prev, t == default ? ct : t);
         }
       }
       catch (ArgumentException)
@@ -419,7 +424,7 @@ public static class RuntimeDispatch
       foreach (var rb in sp.GetServices<IPipelineBehavior<TRequest, TResponse>>())
       {
         var prev = next;
-        next = () => rb.Handle(request, prev, ct);
+        next = t => rb.Handle(request, prev, t == default ? ct : t);
       }
     }
 
@@ -430,6 +435,7 @@ public static class RuntimeDispatch
       IServiceProvider sp, MDatorConfiguration cfg,
       TRequest request, CancellationToken ct,
       RequestHandlerDelegate<Unit> next)
+      where TRequest : notnull
   {
     foreach (var (openType, _) in cfg.OpenBehaviorTypes.OrderBy(x => x.Order).Reverse())
     {
@@ -439,7 +445,7 @@ public static class RuntimeDispatch
         if (sp.GetService(closedType) is IPipelineBehavior<TRequest, Unit> b)
         {
           var prev = next;
-          next = () => b.Handle(request, prev, ct);
+          next = t => b.Handle(request, prev, t == default ? ct : t);
         }
       }
       catch (ArgumentException)
@@ -453,7 +459,7 @@ public static class RuntimeDispatch
       foreach (var rb in sp.GetServices<IPipelineBehavior<TRequest, Unit>>())
       {
         var prev = next;
-        next = () => rb.Handle(request, prev, ct);
+        next = t => rb.Handle(request, prev, t == default ? ct : t);
       }
     }
 
@@ -464,7 +470,7 @@ public static class RuntimeDispatch
       IServiceProvider sp, MDatorConfiguration cfg,
       TRequest request, CancellationToken ct,
       StreamHandlerDelegate<TResponse> next)
-      where TRequest : IStreamRequest<TResponse>
+      where TRequest : notnull, IStreamRequest<TResponse>
   {
     foreach (var (openType, _) in cfg.OpenBehaviorTypes.OrderBy(x => x.Order).Reverse())
     {

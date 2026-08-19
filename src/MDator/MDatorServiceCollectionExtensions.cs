@@ -88,7 +88,19 @@ public static class MDatorServiceCollectionExtensions
     }
 
     services.AddSingleton(cfg);
-    services.AddSingleton(cfg.NotificationPublisher);
+    if (cfg.NotificationPublisherType is { } publisherType)
+    {
+      if (!typeof(INotificationPublisher).IsAssignableFrom(publisherType))
+      {
+        throw new InvalidOperationException(
+            $"{publisherType.Name} must implement INotificationPublisher");
+      }
+      services.Add(new ServiceDescriptor(typeof(INotificationPublisher), publisherType, ServiceLifetime.Singleton));
+    }
+    else
+    {
+      services.AddSingleton(cfg.NotificationPublisher);
+    }
 
     return services;
   }

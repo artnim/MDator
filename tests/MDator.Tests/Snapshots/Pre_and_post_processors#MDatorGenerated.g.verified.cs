@@ -129,11 +129,12 @@ namespace MDator.Generated.SnapshotTest
             var __pre = _sp.GetServices<global::MDator.IRequestPreProcessor<global::Snap.Save>>();
             var __post = _sp.GetServices<global::MDator.IRequestPostProcessor<global::Snap.Save, string>>();
 
-            global::MDator.RequestHandlerDelegate<string> next = async () =>
+            global::MDator.RequestHandlerDelegate<string> next = async __t =>
             {
-                foreach (var __p in __pre) await __p.Process(request, ct).ConfigureAwait(false);
-                var __resp = await handler.Handle(request, ct).ConfigureAwait(false);
-                foreach (var __p in __post) await __p.Process(request, __resp, ct).ConfigureAwait(false);
+                var __ct = __t == default ? ct : __t;
+                foreach (var __p in __pre) await __p.Process(request, __ct).ConfigureAwait(false);
+                var __resp = await handler.Handle(request, __ct).ConfigureAwait(false);
+                foreach (var __p in __post) await __p.Process(request, __resp, __ct).ConfigureAwait(false);
                 return __resp;
             };
 
@@ -142,7 +143,7 @@ namespace MDator.Generated.SnapshotTest
             {
                 foreach (var __rb in _sp.GetServices<global::MDator.IPipelineBehavior<global::Snap.Save, string>>())
                 {
-                    { var __prev2 = next; next = () => __rb.Handle(request, __prev2, ct); }
+                    { var __prev2 = next; next = __t => __rb.Handle(request, __prev2, __t == default ? ct : __t); }
                 }
             }
 
