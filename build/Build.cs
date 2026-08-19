@@ -1,4 +1,6 @@
 using System.IO.Compression;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using Fallout.Common;
 using Fallout.Common.IO;
 using Fallout.Solutions;
@@ -117,8 +119,9 @@ class Build : FalloutBuild
                 .SetOutputDirectory(versionOutputDir));
         }
 
-        MergeNupkgs(stagingDir, OutputDirectory);
+        var mergedNupkg = MergeNupkgs(stagingDir, OutputDirectory);
         stagingDir.DeleteDirectory();
+        VerifyMergedNupkg(mergedNupkg);
       });
 
   Target SampleCompile => _ => _
@@ -161,7 +164,7 @@ class Build : FalloutBuild
   /// <c>analyzers/roslyn&lt;ver&gt;/dotnet/cs/</c> entry.
   /// Common entries (lib/, README, .nuspec, etc.) are deduplicated.
   /// </summary>
-  static void MergeNupkgs(AbsolutePath stagingDir, AbsolutePath outputDir)
+  static AbsolutePath MergeNupkgs(AbsolutePath stagingDir, AbsolutePath outputDir)
   {
     var allNupkgs = stagingDir.GlobFiles("**/*.nupkg")
         .OrderBy(p => p.ToString())
@@ -200,5 +203,61 @@ class Build : FalloutBuild
     }
 
     Log.Information("Merged nupkg: {Path}", mergedPath);
+    return mergedPath;
+  }
+
+  /// <summary>
+  /// Asserts the merged nupkg actually contains one generator DLL per Roslyn
+  /// version, each compiled against that version. Guards against the 0.5.0
+  /// regression where all three analyzer variants were silently built against
+  /// one and the same Roslyn version (see CHANGELOG 0.6.2).
+  /// </summary>
+  static void VerifyMergedNupkg(AbsolutePath nupkgPath)
+  {
+    using var zip = ZipFile.OpenRead(nupkgPath);
+
+    foreach (var roslynVersion in RoslynVersions)
+    {
+      var entryPath = $"analyzers/roslyn{roslynVersion}/dotnet/cs/MDator.SourceGenerator.dll";
+      var entry = zip.GetEntry(entryPath)
+          ?? throw new InvalidOperationException($"Merged nupkg is missing {entryPath}");
+
+      using var entryStream = entry.Open();
+      using var dll = new MemoryStream();
+      entryStream.CopyTo(dll);
+
+      var actual = GetCodeAnalysisReferenceVersion(dll)
+          ?? throw new InvalidOperationException(
+              $"{entryPath} has no assembly reference to Microsoft.CodeAnalysis.CSharp");
+
+      var expected = System.Version.Parse(roslynVersion);
+      if (actual.Major != expected.Major || actual.Minor != expected.Minor)
+      {
+        throw new InvalidOperationException(
+            $"{entryPath} references Microsoft.CodeAnalysis.CSharp {actual}, " +
+            $"but its analyzer folder promises Roslyn {roslynVersion}. " +
+            "The per-Roslyn generator builds are not producing distinct outputs.");
+      }
+
+      Log.Information(
+          "Verified {Entry} references Microsoft.CodeAnalysis.CSharp {Version}",
+          entryPath, actual);
+    }
+  }
+
+  static Version? GetCodeAnalysisReferenceVersion(MemoryStream assemblyStream)
+  {
+    assemblyStream.Position = 0;
+    using var peReader = new PEReader(assemblyStream);
+    var metadata = peReader.GetMetadataReader();
+
+    foreach (var handle in metadata.AssemblyReferences)
+    {
+      var reference = metadata.GetAssemblyReference(handle);
+      if (metadata.GetString(reference.Name) == "Microsoft.CodeAnalysis.CSharp")
+        return reference.Version;
+    }
+
+    return null;
   }
 }

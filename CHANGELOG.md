@@ -11,6 +11,16 @@ list — this file curates the user-visible changes.
 
 ## [Unreleased]
 
+### Added
+
+- The `Pack` build target now verifies the merged nupkg: each
+  `analyzers/roslyn{4.8,4.12,5.0}` variant must exist and actually reference
+  the Roslyn version its folder promises, so the packaging regression that
+  affected 0.5.0–0.6.1 fails the build instead of shipping silently.
+- Snapshot tests (Verify.SourceGenerators) covering the generator's emitted
+  `MDatorGenerated.g.cs` for the main pipeline shapes, including the
+  cross-assembly `[KnownRequest]` path.
+
 ## [0.6.2] - 2026-08-10
 
 ### Fixed

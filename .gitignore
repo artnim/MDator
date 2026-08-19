@@ -404,3 +404,6 @@ FodyWeavers.xsd
 # Fallout build system
 output/
 .fallout/temp/
+
+# Verify snapshot-test transient output (the committed baselines are *.verified.*)
+*.received.*
