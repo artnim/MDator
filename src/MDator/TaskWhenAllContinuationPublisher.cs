@@ -6,18 +6,19 @@ namespace MDator;
 /// after which the continuation scheduler owns them. Matches MediatR's
 /// <c>TaskWhenAllPublisher</c> non-wait mode.
 /// </summary>
-public sealed class TaskWhenAllContinuationPublisher : INotificationPublisher
+public class TaskWhenAllContinuationPublisher : INotificationPublisher
 {
   /// <inheritdoc />
   public Task Publish(
-      IReadOnlyList<NotificationHandlerExecutor> handlerExecutors,
+      IEnumerable<NotificationHandlerExecutor> handlerExecutors,
       INotification notification,
       CancellationToken cancellationToken)
   {
-    var tasks = new Task[handlerExecutors.Count];
-    for (var i = 0; i < handlerExecutors.Count; i++)
+    var tasks = new List<Task>();
+    foreach (var executor in handlerExecutors)
     {
-      tasks[i] = Task.Run(() => handlerExecutors[i].HandlerCallback(notification, cancellationToken), cancellationToken);
+      var current = executor;
+      tasks.Add(Task.Run(() => current.HandlerCallback(notification, cancellationToken), cancellationToken));
     }
     return Task.WhenAll(tasks);
   }

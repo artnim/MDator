@@ -96,7 +96,7 @@ Configure the publisher strategy at registration time:
 services.AddMDator(cfg =>
 {
     // Sequential, stop on first error (default, matches MediatR):
-    cfg.NotificationPublisher = new ForEachAwaitPublisher();
+    cfg.NotificationPublisher = new ForeachAwaitPublisher();
 
     // Parallel, aggregate all errors:
     cfg.NotificationPublisher = new TaskWhenAllPublisher();
@@ -244,7 +244,7 @@ services.AddMDator(cfg =>
     // Lifetime for all generated registrations (default: Transient)
     cfg.Lifetime = ServiceLifetime.Scoped;
 
-    // Notification publisher strategy (default: ForEachAwaitPublisher)
+    // Notification publisher strategy (default: ForeachAwaitPublisher)
     cfg.NotificationPublisher = new TaskWhenAllPublisher();
 
     // Suppress runtime behavior enumeration for pure compile-time pipelines
@@ -266,7 +266,10 @@ services.AddMDator(cfg =>
 1. Replace the `MediatR` package reference with `MDator`.
 2. Find-replace `using MediatR;` with `using MDator;`.
 3. Replace `services.AddMediatR(cfg => ...)` with `services.AddMDator(cfg => ...)`.
-4. Convert open behavior registrations from fluent to attribute:
+4. (Optional) Convert open behavior registrations from fluent to attribute.
+   `cfg.AddOpenBehavior(typeof(LoggingBehavior<,>))` works as in MediatR, but
+   runs on the runtime enumeration path; the attribute form fuses the behavior
+   into the pipeline at compile time:
 
 ```diff
 - cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
@@ -279,8 +282,24 @@ All interface shapes (`IRequest<T>`, `IRequestHandler<,>`, `INotification`,
 `INotificationHandler<>`, `IPipelineBehavior<,>`, `IStreamRequest<>`,
 `IStreamRequestHandler<,>`, `IRequestPreProcessor<>`,
 `IRequestPostProcessor<,>`, `IRequestExceptionHandler<,,>`,
-`IRequestExceptionAction<,>`, `Unit`, `RequestHandlerDelegate<T>`,
-`StreamHandlerDelegate<T>`) are source-level identical to MediatR v12.
+`IRequestExceptionAction<,>`, `Unit`, `RequestHandlerDelegate<T>`
+(including the optional `CancellationToken` parameter of MediatR 12.3+),
+`StreamHandlerDelegate<T>`, `INotificationPublisher`, and the
+`NotificationHandler<T>` base class) are source-level identical to MediatR v12.
+
+Known divergences from MediatR v12:
+
+- Everything lives in the single `MDator` namespace. Delete
+  `using MediatR.Pipeline;` and `using MediatR.NotificationPublishers;` lines
+  instead of find-replacing them.
+- There is no public `Mediator` class to subclass (the mediator is generated);
+  `MediatorImplementationType` and the scanning-tuning knobs
+  (`MaxGenericTypeParameters`, `MaxTypesClosing`, …) do not exist.
+- `AddRequestPreProcessor` / `AddRequestPostProcessor` config methods are not
+  yet available — declare processor classes in a scanned assembly instead, and
+  the generator wires them up.
+- The processor behavior wrapper classes (`RequestPreProcessorBehavior<,>` and
+  friends) are not public types; processors are fused directly.
 
 ## How it works
 

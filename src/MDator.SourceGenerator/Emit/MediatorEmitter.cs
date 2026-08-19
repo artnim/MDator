@@ -614,17 +614,19 @@ internal static class MediatorEmitter
       w.Line($"var __post = _sp.GetServices<global::MDator.IRequestPostProcessor<{reqT}, {respT}>>();");
     w.Line();
 
-    // Core delegate (innermost): pre → handler → post.
-    w.Line($"global::MDator.RequestHandlerDelegate<{respT}> next = async () =>");
+    // Core delegate (innermost): pre → handler → post. A behavior may pass its
+    // own token to next(); default keeps the ambient one (MediatR semantics).
+    w.Line($"global::MDator.RequestHandlerDelegate<{respT}> next = async __t =>");
     w.OpenBrace();
+    w.Line("var __ct = __t == default ? ct : __t;");
     if (pres is { Count: > 0 })
     {
-      w.Line("foreach (var __p in __pre) await __p.Process(request, ct).ConfigureAwait(false);");
+      w.Line("foreach (var __p in __pre) await __p.Process(request, __ct).ConfigureAwait(false);");
     }
-    w.Line("var __resp = await handler.Handle(request, ct).ConfigureAwait(false);");
+    w.Line("var __resp = await handler.Handle(request, __ct).ConfigureAwait(false);");
     if (posts is { Count: > 0 })
     {
-      w.Line("foreach (var __p in __post) await __p.Process(request, __resp, ct).ConfigureAwait(false);");
+      w.Line("foreach (var __p in __post) await __p.Process(request, __resp, __ct).ConfigureAwait(false);");
     }
     w.Line("return __resp;");
     w.CloseBraceWithSemicolon();
@@ -640,7 +642,7 @@ internal static class MediatorEmitter
       {
         var bType = b.BehaviorType.GlobalNameWithoutGenerics;
         w.Line($"var __b_{i} = _sp.GetRequiredService<{bType}<{reqT}, {respT}>>();");
-        w.Line("{ var __prev = next; next = () => __b_" + i + ".Handle(request, __prev, ct); }");
+        w.Line("{ var __prev = next; next = __t => __b_" + i + ".Handle(request, __prev, __t == default ? ct : __t); }");
         i++;
       }
     }
@@ -654,7 +656,7 @@ internal static class MediatorEmitter
     w.OpenBrace();
     w.Line($"foreach (var __rb in _sp.GetServices<global::MDator.IPipelineBehavior<{reqT}, {respT}>>())");
     w.OpenBrace();
-    w.Line("{ var __prev2 = next; next = () => __rb.Handle(request, __prev2, ct); }");
+    w.Line("{ var __prev2 = next; next = __t => __rb.Handle(request, __prev2, __t == default ? ct : __t); }");
     w.CloseBrace();
     w.CloseBrace();
     w.Line();
@@ -731,11 +733,12 @@ internal static class MediatorEmitter
       w.Line($"var __pre = _sp.GetServices<global::MDator.IRequestPreProcessor<{reqT}>>();");
     w.Line();
 
-    w.Line("global::MDator.RequestHandlerDelegate<global::MDator.Unit> next = async () =>");
+    w.Line("global::MDator.RequestHandlerDelegate<global::MDator.Unit> next = async __t =>");
     w.OpenBrace();
+    w.Line("var __ct = __t == default ? ct : __t;");
     if (pres is { Count: > 0 })
-      w.Line("foreach (var __p in __pre) await __p.Process(request, ct).ConfigureAwait(false);");
-    w.Line("await handler.Handle(request, ct).ConfigureAwait(false);");
+      w.Line("foreach (var __p in __pre) await __p.Process(request, __ct).ConfigureAwait(false);");
+    w.Line("await handler.Handle(request, __ct).ConfigureAwait(false);");
     w.Line("return global::MDator.Unit.Value;");
     w.CloseBraceWithSemicolon();
     w.Line();
@@ -747,7 +750,7 @@ internal static class MediatorEmitter
       {
         var bType = b.BehaviorType.GlobalNameWithoutGenerics;
         w.Line($"var __b_{i} = _sp.GetRequiredService<{bType}<{reqT}, global::MDator.Unit>>();");
-        w.Line("{ var __prev = next; next = () => __b_" + i + ".Handle(request, __prev, ct); }");
+        w.Line("{ var __prev = next; next = __t => __b_" + i + ".Handle(request, __prev, __t == default ? ct : __t); }");
         i++;
       }
     }
@@ -756,7 +759,7 @@ internal static class MediatorEmitter
     w.OpenBrace();
     w.Line($"foreach (var __rb in _sp.GetServices<global::MDator.IPipelineBehavior<{reqT}, global::MDator.Unit>>())");
     w.OpenBrace();
-    w.Line("{ var __prev2 = next; next = () => __rb.Handle(request, __prev2, ct); }");
+    w.Line("{ var __prev2 = next; next = __t => __rb.Handle(request, __prev2, __t == default ? ct : __t); }");
     w.CloseBrace();
     w.CloseBrace();
     w.Line();
@@ -845,11 +848,12 @@ internal static class MediatorEmitter
     w.Line($"var __post = _sp.GetServices<global::MDator.IRequestPostProcessor<{reqT}, {respT}>>();");
     w.Line();
 
-    w.Line($"global::MDator.RequestHandlerDelegate<{respT}> next = async () =>");
+    w.Line($"global::MDator.RequestHandlerDelegate<{respT}> next = async __t =>");
     w.OpenBrace();
-    w.Line("foreach (var __p in __pre) await __p.Process(request, ct).ConfigureAwait(false);");
-    w.Line("var __resp = await handler.Handle(request, ct).ConfigureAwait(false);");
-    w.Line("foreach (var __p in __post) await __p.Process(request, __resp, ct).ConfigureAwait(false);");
+    w.Line("var __ct = __t == default ? ct : __t;");
+    w.Line("foreach (var __p in __pre) await __p.Process(request, __ct).ConfigureAwait(false);");
+    w.Line("var __resp = await handler.Handle(request, __ct).ConfigureAwait(false);");
+    w.Line("foreach (var __p in __post) await __p.Process(request, __resp, __ct).ConfigureAwait(false);");
     w.Line("return __resp;");
     w.CloseBraceWithSemicolon();
     w.Line();
@@ -874,10 +878,11 @@ internal static class MediatorEmitter
     w.Line($"var __pre = _sp.GetServices<global::MDator.IRequestPreProcessor<{reqT}>>();");
     w.Line();
 
-    w.Line("global::MDator.RequestHandlerDelegate<global::MDator.Unit> next = async () =>");
+    w.Line("global::MDator.RequestHandlerDelegate<global::MDator.Unit> next = async __t =>");
     w.OpenBrace();
-    w.Line("foreach (var __p in __pre) await __p.Process(request, ct).ConfigureAwait(false);");
-    w.Line("await handler.Handle(request, ct).ConfigureAwait(false);");
+    w.Line("var __ct = __t == default ? ct : __t;");
+    w.Line("foreach (var __p in __pre) await __p.Process(request, __ct).ConfigureAwait(false);");
+    w.Line("await handler.Handle(request, __ct).ConfigureAwait(false);");
     w.Line("return global::MDator.Unit.Value;");
     w.CloseBraceWithSemicolon();
     w.Line();
@@ -956,7 +961,7 @@ internal static class MediatorEmitter
     {
       var bType = b.BehaviorType.GlobalNameWithoutGenerics;
       w.Line($"var __b_{i} = _sp.GetRequiredService<{bType}<{reqT}, {respT}>>();");
-      w.Line("{ var __prev = next; next = () => __b_" + i + ".Handle(request, __prev, ct); }");
+      w.Line("{ var __prev = next; next = __t => __b_" + i + ".Handle(request, __prev, __t == default ? ct : __t); }");
       i++;
     }
     w.Line();
@@ -969,7 +974,7 @@ internal static class MediatorEmitter
     w.OpenBrace();
     w.Line($"foreach (var __rb in _sp.GetServices<global::MDator.IPipelineBehavior<{reqT}, {respT}>>())");
     w.OpenBrace();
-    w.Line("{ var __prev2 = next; next = () => __rb.Handle(request, __prev2, ct); }");
+    w.Line("{ var __prev2 = next; next = __t => __rb.Handle(request, __prev2, __t == default ? ct : __t); }");
     w.CloseBrace();
     w.CloseBrace();
     w.Line();

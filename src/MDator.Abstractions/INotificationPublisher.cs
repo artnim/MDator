@@ -36,7 +36,7 @@ public interface INotificationPublisher
   /// Publishes the given notification to all provided handlers asynchronously.
   /// </summary>
   /// <param name="handlerExecutors">
-  /// A read-only list of notification handler executors that define the instances and callback logic for handling the notification.
+  /// The notification handler executors that define the instances and callback logic for handling the notification.
   /// </param>
   /// <param name="notification">
   /// The notification to be published to the registered handlers.
@@ -48,7 +48,7 @@ public interface INotificationPublisher
   /// A task that represents the asynchronous operation of publishing the notification.
   /// </returns>
   Task Publish(
-      IReadOnlyList<NotificationHandlerExecutor> handlerExecutors,
+      IEnumerable<NotificationHandlerExecutor> handlerExecutors,
       INotification notification,
       CancellationToken cancellationToken);
 }
